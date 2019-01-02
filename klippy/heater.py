@@ -180,29 +180,32 @@ class ControlPID:
         self.prev_temp_time = 0.
         self.prev_temp_deriv = 0.
         self.prev_temp_integ = 0.
+        self.prev_temp_err = 0.
     def temperature_update(self, read_time, temp, target_temp):
         time_diff = read_time - self.prev_temp_time
-        # Calculate change of temperature
-        temp_diff = temp - self.prev_temp
-        if time_diff >= self.min_deriv_time:
-            temp_deriv = temp_diff / time_diff
-        else:
-            temp_deriv = (self.prev_temp_deriv * (self.min_deriv_time-time_diff)
-                          + temp_diff) / self.min_deriv_time
         # Calculate accumulated temperature "error"
         temp_err = target_temp - temp
+        # Calculate change of temperature
+        err_diff = temp_err - self.prev_temp_err
+        if err_diff >= self.min_deriv_time:
+            temp_deriv = err_diff / time_diff
+        else:
+            temp_deriv = (self.prev_temp_deriv * (self.min_deriv_time-time_diff)
+                          + err_diff) / self.min_deriv_time
+        # Calculate integral
         temp_integ = self.prev_temp_integ + temp_err * time_diff
         temp_integ = max(0., min(self.temp_integ_max, temp_integ))
         # Calculate output
-        co = self.Kp*temp_err + self.Ki*temp_integ - self.Kd*temp_deriv
+        co = self.Kp*temp_err + self.Ki*temp_integ + self.Kd*temp_deriv
         #logging.debug("pid: %f@%.3f -> diff=%f deriv=%f err=%f integ=%f co=%d",
-        #    temp, read_time, temp_diff, temp_deriv, temp_err, temp_integ, co)
+        #    temp, read_time, err_diff, temp_deriv, temp_err, temp_integ, co)
         bounded_co = max(0., min(self.heater_max_power, co))
         self.heater.set_pwm(read_time, bounded_co)
         # Store state for next measurement
         self.prev_temp = temp
         self.prev_temp_time = read_time
         self.prev_temp_deriv = temp_deriv
+        self.prev_temp_err = temp_err
         if co == bounded_co:
             self.prev_temp_integ = temp_integ
     def check_busy(self, eventtime, smoothed_temp, target_temp):
