@@ -69,6 +69,8 @@ class ControlMPC:
                     % ambient_sensor_name
                 )
 
+        self.ambient_sensor_alpha = config.getfloat("ambient_temp_alpha", 0.25, minval = 0.0, maxval = 0.9)
+
         self.cooling_fan = None
         fan_name = config.get("cooling_fan")
         if fan_name is not None:
@@ -88,8 +90,6 @@ class ControlMPC:
         self.const_fan_ambient_transfer = config.getfloatlist("fan_ambient_transfer", [])
 
         self.heater_max_power = heater.get_max_power() * self.const_heater_power
-
-        self.want_ambient_refresh = self.ambient_sensor is not None
 
         self.state_block_temp = override_block_temp
         self.state_sensor_temp = self.state_block_temp
@@ -300,16 +300,11 @@ class ControlMPC:
 
         # Correct
 
-        smoothing = 1 - (1 - self.const_smoothing) ** dt
+        smoothing = 1.0 - (1.0 - self.const_smoothing) ** dt
         adjustment_dT = (temp - self.state_sensor_temp) * smoothing
         self.state_block_temp += adjustment_dT
         self.state_sensor_temp += adjustment_dT
 
-        if self.want_ambient_refresh:
-            temp = self.ambient_sensor.get_temp(read_time)[0]
-            if temp != 0.0:
-                self.state_ambient_temp = temp
-                self.want_ambient_refresh = False
         if (self.last_power > 0 and self.last_power < 1.0) or abs(
             expected_block_dT + adjustment_dT
         ) < self.const_steady_state_rate * dt:
@@ -322,6 +317,14 @@ class ControlMPC:
                     adjustment_dT, -self.const_min_ambient_change * dt
                 )
             self.state_ambient_temp += ambient_delta
+
+        # If there's an ambient sensor, correct estimate with real data.
+        if self.ambient_sensor is not None:
+            temp = self.ambient_sensor.get_temp(read_time)[0]
+            if temp != 0.0:
+                # Adjust alpha based on sensor timestep.
+                compensated_alpha = 1.0 - (1.0 - self.ambient_sensor_alpha) ** dt
+                self.state_ambient_temp += compensated_alpha * (temp - self.state_ambient_temp)
 
         # Output
 

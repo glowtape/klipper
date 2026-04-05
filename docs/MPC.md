@@ -84,8 +84,12 @@ These can be specified in the config but should not need to be changed from the 
   
 - `ambient_temp_sensor: temperature_sensor <sensor_name>`  
   _Default Value: MPC ESTIMATE_  
-  It is recommended not to specify this parameter and let MPC will estimate. This is used for initial state temperature and calibration but not for actual control.
-  Any temperature sensor could be used, but the sensor should be in proximity to the hotend or measuring the ambient air surrounding the hotend.  
+  This temperature sensor will correct the ambient temperature estimate in the model. It is smoothed by ambient_temp_alpha to reduce noisy input.
+  Any temperature sensor could be used, but the sensor should be in proximity to the hotend or measuring the ambient air surrounding the hotend.
+
+- `ambient_temp_alpha:`
+  _Default Value: 0.25_
+  Alpha coefficient for a first order smoothing filter on the ambient temperature sensor. The coefficient applies to a timestep of 1 second and will be compensated based on sensor timestep.
 
 ## PTC Heater Power
 
