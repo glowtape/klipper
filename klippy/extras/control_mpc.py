@@ -103,10 +103,10 @@ class ControlMPC:
 
         self.toolhead = None
 
-        if config_override is not None:
+        gcode = self.printer.lookup_object("gcode")
+        if gcode.mux_commands.get("MPC_SET") is not None:
             return
 
-        gcode = self.printer.lookup_object("gcode")
         gcode.register_mux_command(
             "MPC_CALIBRATE",
             "HEATER",
