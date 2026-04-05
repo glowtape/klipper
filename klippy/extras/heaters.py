@@ -3,7 +3,13 @@
 # Copyright (C) 2016-2025  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import os, logging, threading
+import os, logging, threading, collections
+from .control_mpc import (
+    ControlMPC,
+    FILAMENT_TEMP_SRC_AMBIENT,
+    FILAMENT_TEMP_SRC_FIXED,
+    FILAMENT_TEMP_SRC_SENSOR,
+)
 
 
 ######################################################################
@@ -27,6 +33,7 @@ class Heater:
         self.sensor = sensor
         self.min_temp = config.getfloat('min_temp', minval=KELVIN_TO_CELSIUS)
         self.max_temp = config.getfloat('max_temp', above=self.min_temp)
+        self.mpc_sensors = []
         self.sensor.setup_minmax(self.min_temp, self.max_temp)
         self.sensor.setup_callback(self.temperature_callback)
         self.pwm_delay = self.sensor.get_report_time_delta()
@@ -49,7 +56,7 @@ class Heater:
         self.next_pwm_time = 0.
         self.last_pwm_value = 0.
         # Setup control algorithm sub-class
-        algos = {'watermark': ControlBangBang, 'pid': ControlPID}
+        algos = {'watermark': ControlBangBang, 'pid': ControlPID, 'mpc': ControlMPC}
         algo = config.getchoice('control', algos)
         self.control = algo(self, config)
         # Setup output heater pin
@@ -95,11 +102,19 @@ class Heater:
             self.smoothed_temp += temp_diff * adj_time
             self.can_extrude = (self.smoothed_temp >= self.min_extrude_temp)
         #logging.debug("temp: %.3f %f = %f", read_time, temp)
+        # logging.debug("temp: %.3f %f = %f", read_time, temp)
+        for mpc_sensor in self.mpc_sensors:
+            mpc_sensor.process_temp_update(self.get_control(), read_time)
+
     def _handle_shutdown(self):
         self.verify_mainthread_time = -999.
     # External commands
     def get_name(self):
         return self.name
+
+    def add_mpc_sensor(self, mpc_sensor):
+        self.mpc_sensors.append(mpc_sensor)
+
     def get_pwm_delay(self):
         return self.pwm_delay
     def get_max_power(self):
@@ -112,6 +127,8 @@ class Heater:
                 "Requested temperature (%.1f) out of range (%.1f:%.1f)"
                 % (degrees, self.min_temp, self.max_temp))
         with self.lock:
+            if degrees != 0.0 and hasattr(self.control, "check_valid"):
+                self.control.check_valid()
             self.target_temp = degrees
     def get_temp(self, eventtime):
         est_print_time = self.mcu_pwm.get_mcu().estimated_print_time(eventtime)
@@ -146,6 +163,7 @@ class Heater:
         return is_active, '%s: target=%.0f temp=%.1f pwm=%.3f' % (
             self.short_name, target_temp, last_temp, last_pwm_value)
     def get_status(self, eventtime):
+        control_stats = None
         with self.lock:
             target_temp = self.target_temp
             smoothed_temp = self.smoothed_temp
