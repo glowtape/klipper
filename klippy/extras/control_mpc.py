@@ -9,23 +9,22 @@ FILAMENT_TEMP_SRC_FIXED = "fixed"
 FILAMENT_TEMP_SRC_SENSOR = "sensor"
 
 class ControlMPC:
-    def __init__(self, heater, config, current_block_temp=AMBIENT_TEMP, profile=None):
-        # current_block_temp: Either ambient or whatever was passed by MPC_CALIBRATE.
-        #                     (TODO: Attempt to do a read-out at system start.)
-        # profile: Dictionary with settings, set by MPC_CALIBRATE, too.
-        #          (TODO: Might as well imply register=true)
+    def __init__(self, heater, config, override_block_temp=AMBIENT_TEMP, config_override=None):
+        # override_block_temp:  Either ambient temperature, or whatever was passed by MPC_CALIBRATE.
+        #                       (TODO: Attempt to do a read-out at system start.)
+        # config_override:      Dictionary with settings to override, set by MPC_CALIBRATE, too.
 
         self.config = config
         self.heater = heater
         self.printer = heater.printer
         self.reactor = self.printer.get_reactor()
 
-        self.const_block_heat_capacity = config.getfloat("block_heat_capacity", None, minval = 0) if profile is None else profile["block_heat_capacity"]
-        self.const_ambient_transfer = config.getfloat("ambient_transfer", None, minval = 0) if profile is None else profile["ambient_transfer"]
+        self.const_block_heat_capacity = config.getfloat("block_heat_capacity", None, minval = 0) if config_override is None else config_override["block_heat_capacity"]
+        self.const_ambient_transfer = config.getfloat("ambient_transfer", None, minval = 0) if config_override is None else config_override["ambient_transfer"]
         self.const_target_reach_time = config.getfloat("target_reach_time", 2.0, minval = 0)
         self.const_heater_power = config.getfloat("heater_power", 50, minval = 10)
         self.const_smoothing = config.getfloat("smoothing", 0.83, minval = 0)
-        self.const_sensor_responsiveness = config.getfloat("sensor_responsiveness", None, minval = 0) if profile is None else profile["sensor_responsiveness"]
+        self.const_sensor_responsiveness = config.getfloat("sensor_responsiveness", None, minval = 0) if config_override is None else config_override["sensor_responsiveness"]
         self.const_min_ambient_change = config.getfloat("min_ambient_change", 1, minval = 0.1)
         self.const_steady_state_rate = config.getfloat("steady_state_rate", 0.5, minval = 0.1)
         self.const_filament_diameter = config.getfloat("filament_diameter", 1.75, minval = 1)
@@ -92,11 +91,7 @@ class ControlMPC:
 
         self.want_ambient_refresh = self.ambient_sensor is not None
 
-#	Glowtape: Get heater temp at runtime
-#        self.state_block_temp = (
-#            AMBIENT_TEMP if load_clean else self._heater_temp()
-#        )
-        self.state_block_temp = current_block_temp
+        self.state_block_temp = override_block_temp
         self.state_sensor_temp = self.state_block_temp
         self.state_ambient_temp = AMBIENT_TEMP
 
@@ -108,7 +103,7 @@ class ControlMPC:
 
         self.toolhead = None
 
-        if profile is not None:
+        if config_override is not None:
             return
 
         gcode = self.printer.lookup_object("gcode")
@@ -462,17 +457,17 @@ class MpcCalibrate:
             logging.info("First pass: %s", first_res)
 
             # First pass values, pass to new controller
-            profile = {}
+            config_override = {}
             for key in [
                 "block_heat_capacity",
                 "ambient_transfer",
                 "sensor_responsiveness",
             ]:
-                profile[key] = first_res[key]
+                config_override[key] = first_res[key]
 
             # Get last known temperature and pass it as current block temperature
             current_temp = samples[-1][1]
-            new_control = ControlMPC(self.heater, self.config, current_temp, profile)
+            new_control = ControlMPC(self.heater, self.config, current_temp, config_override)
             new_control.state_block_temp = first_res["post_block_temp"]
             new_control.state_sensor_temp = first_res["post_sensor_temp"]
             new_control.state_ambient_temp = ambient_temp
