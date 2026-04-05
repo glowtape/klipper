@@ -39,7 +39,7 @@ class ControlMPC:
             self.filament_temp_src = (FILAMENT_TEMP_SRC_AMBIENT,)
         else:
             try:
-                value = float(temp)
+                value = float(filament_temp_src_raw)
             except ValueError:
                 raise config.error(
                     "Unable to parse option 'filament_temperature_source' in section '%s'"
@@ -52,19 +52,19 @@ class ControlMPC:
         ambient_sensor_name = config.get("ambient_temp_sensor", None)
         self.ambient_sensor = None
         if ambient_sensor_name is not None:
-            self.ambient_sensor = config_section.get_printer().load_object(
-                config_section,
+            self.ambient_sensor = config.get_printer().load_object(
+                config,
                 ambient_sensor_name,
                 None,
             )
             if self.ambient_sensor is None:
                 self.ambient_sensor = (
-                    config_section.get_printer().lookup_object(
+                    config.get_printer().lookup_object(
                         ambient_sensor_name, None
                     )
                 )
             if self.ambient_sensor is None:
-                raise config_section.error(
+                raise config.error(
                     "Unknown ambient_temp_sensor '%s' specified"
                     % ambient_sensor_name
                 )
@@ -78,11 +78,11 @@ class ControlMPC:
             if fan_obj is None:
                 fan_obj = self.printer.lookup_object(fan_name, None)
             if fan_obj is None:
-                raise config_section.error(
+                raise config.error(
                     "Unknown part_cooling_fan '%s' specified" % fan_name
                 )
             if not hasattr(fan_obj, "fan") or not hasattr(fan_obj.fan, "set_speed"):
-                raise config_section.error(
+                raise config.error(
                     "part_cooling_fan '%s' is not a valid fan object" % fan_name
                 )
             self.cooling_fan = fan_obj.fan
