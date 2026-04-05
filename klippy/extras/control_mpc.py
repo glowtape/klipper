@@ -405,9 +405,6 @@ class ControlMPC:
     def update_smooth_time(self):
         pass
 
-    def get_profile(self):
-        return self.profile
-
     def get_type(self):
         return "mpc"
 
@@ -899,9 +896,6 @@ class TuningControl:
         self.value = value
         self.target = target
         self.heater.set_temp(target)
-
-    def get_profile(self):
-        return {"name": "tuning"}
 
     def get_type(self):
         return "tuning"
