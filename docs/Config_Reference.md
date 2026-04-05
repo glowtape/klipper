@@ -903,7 +903,8 @@ The extruder section is used to describe the heater parameters for the
 nozzle hotend along with the stepper controlling the extruder. See the
 [command reference](G-Codes.md#extruder) for additional information.
 See the [pressure advance guide](Pressure_Advance.md) for information
-on tuning pressure advance.
+on tuning pressure advance. See [PID](PID.md) or [MPC](MPC.md) for more
+detailed information about the control methods.
 
 ```
 [extruder]
@@ -1004,11 +1005,23 @@ pid_Kd:
 #   off and 1.0 being full on. Consider using the PID_CALIBRATE
 #   command to obtain these parameters. The pid_Kp, pid_Ki, and pid_Kd
 #   parameters must be provided for PID heaters.
+#
+#   If control: watermark
 #max_delta: 2.0
 #   On 'watermark' controlled heaters this is the number of degrees in
 #   Celsius above the target temperature before disabling the heater
 #   as well as the number of degrees below the target before
 #   re-enabling the heater. The default is 2 degrees Celsius.
+#
+#   If control: mpc
+#   See MPC.md for details about these parameters.
+#heater_power:
+#cooling_fan:
+#ambient_temp_sensor:
+#filament_diameter: 1.75
+#filament_density: 1.2
+#filament_heat_capacity: 1.8
+#
 #pwm_cycle_time: 0.100
 #   Time in seconds for each software PWM cycle of the heater. It is
 #   not recommended to set this unless there is an electrical
@@ -3201,6 +3214,41 @@ sensor_type: temperature_combined
 #   Must be provided. Maximum permissible deviation between the sensors
 #   to combine (e.g. 5 degrees). To disable it, use a large value (e.g. 999.9)
 ```
+
+### MPC Ambient Sensor
+
+Virtual MPC sensor to show the internal ambient temperature value (defaults to 25 if any other algorithm than MPC is used)
+
+```
+sensor_type: mpc_ambient_temperature
+heater_name: extruder
+#   Put the name of the heater this sensor is tied to (this parameter is required)
+#gcode_id: AT
+min_temp: 0
+max_temp: 325
+#ignore_limits: False
+#   Ignore the temp limits (if set to true, the min and max temp can be omitted)
+#echo_limits_to_console: False
+#   If set to true, limits will be echoed to console instead of just being ignored if ignore_limits is true
+```
+
+### MPC Block Sensor
+
+Virtual MPC sensor to show the internal ambient temperature value (defaults to 25 if any other algorithm than MPC is used)
+
+```
+sensor_type: mpc_block_temperature
+heater_name: extruder
+#   Put the name of the heater this sensor is tied to (this parameter is required)
+#gcode_id: BE
+min_temp: 0
+max_temp: 325
+#ignore_limits: False
+#   Ignore the temp limits (if set to true, the min and max temp can be omitted)
+#echo_limits_to_console: False
+#   If set to true, limits will be echoed to console instead of just being ignored if ignore_limits is true
+```
+
 
 ## Fans
 
